@@ -232,7 +232,7 @@ void Account_Menu(Accounts* accounts, credintials* username){
         View_All_Accounts(accounts, username);
         break;
     case 3:
-        printf("Update Your Accounts \n");
+        printf("Update Your Account \n");
         Update_My_Account(accounts, username);
         break;
     case 4:
