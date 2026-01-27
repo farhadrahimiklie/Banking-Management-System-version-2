@@ -11,7 +11,7 @@ typedef struct credintials{
 typedef struct Accounts{
     int Account_ID;
     char fullName[35];
-    int phoneNumber;
+    long int phoneNumber;
     char AccountType[9];
     double balance;
     char status[10];
@@ -75,21 +75,115 @@ void View_All_Accounts(Accounts* accounts, credintials* username){
     }
     int found = 0;
     while (fread(accounts, sizeof(Accounts), 1, ptr) == 1) {
-        
+
+        if (strcmp(accounts->lastlogin, username->username) == 0) {
             printf("Account_ID : %d \n", accounts->Account_ID);
             printf("FullName : %s \n", accounts->fullName);
-            printf("phoneNumber : %d \n", accounts->phoneNumber);
+            printf("phoneNumber : %ld \n", accounts->phoneNumber);
             printf("AccountType : %s \n", accounts->AccountType);
             printf("balance : %.3lf \n", accounts->balance);
             printf("status : %s \n", accounts->status);
             printf("lastlogin : %s \n", accounts->lastlogin);
             printf("dateCreated : %s \n", accounts->dateCreated);
             found = 1;
-
+        }
     }
 
        if (!found) printf("No accounts found.\n");
        fclose(ptr);
+}
+
+void Update_My_Account(Accounts* accounts, credintials* username){
+      FILE* ptr = fopen("accounts.bin", "rb+");
+      if (ptr == NULL) {
+          perror("Cannot open file for reading. ");
+          return;
+      }
+      int found = 0;
+      int choice;
+
+      while (fread(accounts, sizeof(Accounts), 1, ptr) == 1) {
+  
+          if (strcmp(accounts->lastlogin, username->username) == 0) {
+
+              found = 1;
+              printf("1. FullName \n");
+              printf("2. AccountType \n");
+              printf("3. balance \n");
+              printf("4. status \n");
+              printf("enter your choice ");
+              scanf("%d", &choice);
+              getchar(); // clear buffer
+              switch (choice) {
+                  case 1:
+                      printf("enter your new account name ");
+                      fgets(accounts->fullName, sizeof(accounts->fullName), stdin);
+                      trim_newline(accounts->fullName);
+                      break;
+                  case 2:
+                      printf("enter your new account type ");
+                      fgets(accounts->AccountType, sizeof(accounts->AccountType), stdin);
+                      trim_newline(accounts->AccountType);
+                      break;
+                  case 3:
+                      printf("enter your new account balance ");
+                      scanf("%lf", &accounts->balance);
+                      getchar();
+                      break;
+                  case 4:
+                      printf("enter your new account status ");
+                      fgets(accounts->status, sizeof(accounts->status), stdin);
+                      trim_newline(accounts->status);
+                      break;
+                  default:
+                      printf("invalid choice. \n");
+                      fclose(ptr);
+                      return;
+              }
+              fseek(ptr, -sizeof(Accounts), SEEK_CUR);
+              fwrite(accounts, sizeof(Accounts), 1, ptr);
+
+              printf("Account updated Successfully \n");
+              break;
+          } 
+      } 
+
+      if (!found) printf("No accounts found.\n");
+      fclose(ptr);
+
+}
+
+void Delete_My_Account(credintials* username){
+    FILE* ptr = fopen("accounts.bin", "rb");
+    FILE* temp = fopen("temp.bin", "wb");
+    if (!ptr || !temp) {
+        perror("error wihle opening file. \n");
+        return;
+    }
+
+    Accounts second;
+    int found = 0;
+
+    while(fread(&second, sizeof(Accounts), 1, ptr) == 1) {
+        if (strcmp(second.lastlogin, username->username) == 0) {
+            found = 1; // skip writing - delete it.
+        }else {
+            fwrite(&second, sizeof(Accounts), 1, temp);
+        }
+    }
+
+    fclose(ptr);
+    fclose(temp);
+
+    remove("accounts.bin");
+    rename("temp.bin", "accounts.bin");
+
+    if (found) {
+    printf("Account Deleted Successfully \n");
+    }else {
+    printf("No Account Found \n");
+    }
+
 }
 
 void Account_Menu(Accounts* accounts, credintials* username){
@@ -100,14 +194,13 @@ void Account_Menu(Accounts* accounts, credintials* username){
     printf("User Account Details \n");
     printf("\n===========================================\n");
 
-    printf("1. Create New Account\n");
-    printf("2. View All Accounts\n");
-    printf("3. Search Accounts\n");
-    printf("4. Update Accounts\n");
-    printf("5. Delete Accounts\n");
+    printf("1. Create Your Account\n");
+    printf("2. View Your Account\n");
+    printf("3. Update Your Account\n");
+    printf("4. Delete Your Account\n");
     printf("0. Exits\n");
     printf("\n===========================================\n");
-    printf("enter your choice ");
+    printf("Enter your choice ");
     scanf("%d", &choice);
     switch (choice) {
     case 1:
@@ -120,7 +213,7 @@ void Account_Menu(Accounts* accounts, credintials* username){
         fgets(accounts->fullName, sizeof(accounts->fullName), stdin);
 
         printf("phoneNumber__ ");
-        scanf("%d", &accounts->phoneNumber);
+        scanf("%ld", &accounts->phoneNumber);
         getchar();
 
         printf("AccountType__ ");
@@ -135,10 +228,16 @@ void Account_Menu(Accounts* accounts, credintials* username){
         Account_Creation(accounts, username);
         break;
      case 2:
-        printf("View All Accounts \n");
+        printf("View Your Account \n");
         View_All_Accounts(accounts, username);
         break;
-
+    case 3:
+        printf("Update Your Accounts \n");
+        Update_My_Account(accounts, username);
+        break;
+    case 4:
+        printf("Delete Your Account \n");
+        Delete_My_Account(username);
      default:
         printf("Invalid Choice! \n");
         break;
