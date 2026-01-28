@@ -1,3 +1,4 @@
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
@@ -22,7 +23,7 @@ typedef struct Accounts{
 typedef struct Transactions{
     int transactionID;
     int accountID; // who's transfer the money account ID
-    char type[15]; // deposit, withdraw, transfer
+    char type; // deposit, withdraw, transfer
     double Amount; // how much money you transfer to someone account
     char date_time[40];
     double previous_balance; // last account balance is
@@ -40,7 +41,6 @@ void Registers(credintials* credintial){
         perror("Cannot Open while Writing to file.  ");
         return;
     }
-
 
     printf("username__ ");
     fgets(credintial->username, sizeof(credintial->username), stdin);
@@ -218,6 +218,44 @@ void Check_Balance(Accounts* accounts, credintials* username){
     fclose(ptr);
 }
 
+void Transaction_Logs(Transactions* transaction ,Accounts* id, char type, double Add_balance, char time_logs[], double kuhna_balance, Accounts* balance){
+    FILE* ptr = fopen("transaction_logs.bin", "ab");
+    if (ptr == NULL) {
+        perror("Cannot open file for writing in logs \n");
+        return;
+    }
+
+    transaction->transactionID += 1;
+    transaction->accountID = id->Account_ID;
+    transaction->type = type;
+    transaction->Amount = Add_balance;
+    strcpy(transaction->date_time, time_logs);
+    transaction->previous_balance = kuhna_balance;
+    transaction->new_balance = balance->balance;
+
+    fwrite(transaction, sizeof(Transactions), 1, ptr);
+
+    fclose(ptr);
+}
+
+void Show_Transaction_Logs(Transactions* transaction){
+    FILE* ptr = fopen("transaction_logs.bin", "rb");
+    if (ptr == NULL) {
+    perror("cannot open file for reading \n");
+    return;
+    }
+    int found = 0;
+    while (fread(transaction, sizeof(Transactions), 1, ptr) == 1) {
+        found = 1;
+        printf("Account_ID %d \n", transaction->accountID);
+        printf("Type %c \n", transaction->type);
+        printf("Amount %lf \n", transaction->Amount);
+        printf("date created %s \n", transaction->date_time);
+        printf("Previous Amount %lf \n", transaction->previous_balance);
+    }
+    fclose(ptr);
+}
+
 void Deposit_Money(Accounts* accounts, credintials* username, Transactions* transaction){
     FILE* ptr = fopen("accounts.bin", "rb+");
     if (ptr == NULL) {
@@ -225,18 +263,26 @@ void Deposit_Money(Accounts* accounts, credintials* username, Transactions* tran
         return;
     }
 
+    time_t t = time(NULL);
+    char time_logs[40];
+    strcpy(time_logs, ctime(&t));
+    time_logs[strlen(time_logs) - 1] = '\0';
+
+
+
     int found = 0;
     double n_balance;
     while (fread(accounts, sizeof(Accounts), 1, ptr) == 1) {
         if (strcmp(accounts->lastlogin, username->username) == 0) {
             found = 1;
-
+            double old_balance = accounts->balance;
             printf("enter your deposit balance ");
             scanf("%lf", &n_balance);
             getchar(); // for clear buffer
             accounts->balance += n_balance;
             fseek(ptr, -sizeof(Accounts), SEEK_CUR);
             fwrite(accounts, sizeof(Accounts), 1, ptr);
+            Transaction_Logs(transaction, accounts, 'W', n_balance ,time_logs, old_balance, accounts);
             break;
             printf("You Successfully Deposit your Money to your Account \n");
         }
@@ -258,6 +304,7 @@ void Account_Menu(Accounts* accounts, credintials* username, Transactions* trans
     printf("4. Delete Your Account\n");
     printf("5. Check Your Balance \n");
     printf("6. Deposit Money \n");
+    printf("7. Show Transactions Logs \n");
     // printf("7. Withdraw Money \n");
     printf("0. logout \n");
     printf("\n===========================================\n");
@@ -307,6 +354,10 @@ void Account_Menu(Accounts* accounts, credintials* username, Transactions* trans
     case 6:
         printf("Deposit Your Money \n");
         Deposit_Money(accounts, username, transaction);
+        break;
+    case 7:
+        printf("Transaction logs \n");
+        Show_Transaction_Logs(transaction);
         break;
      default:
         printf("Invalid Choice! \n");
