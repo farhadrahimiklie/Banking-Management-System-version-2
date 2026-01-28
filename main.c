@@ -12,12 +12,22 @@ typedef struct Accounts{
     int Account_ID;
     char fullName[35];
     long int phoneNumber;
-    char AccountType[9];
+    char AccountType[9]; // savings, current
     double balance;
-    char status[10];
-    char lastlogin[40];
+    char status[10]; // active, blocked, close
+    char lastlogin[40]; // who's last login to account
     char dateCreated[40];
 }Accounts;
+
+typedef struct Transactions{
+    int transactionID;
+    int accountID; // who's transfer the money account ID
+    char type[15]; // deposit, withdraw, transfer
+    double Amount; // how much money you transfer to someone account
+    char date_time[40];
+    double previous_balance; // last account balance is
+    double new_balance; // and new account balance is
+}Transactions;
 
 void trim_newline(char *str)
 {
@@ -186,7 +196,55 @@ void Delete_My_Account(credintials* username){
 
 }
 
-void Account_Menu(Accounts* accounts, credintials* username){
+void Check_Balance(Accounts* accounts, credintials* username){
+    FILE* ptr = fopen("accounts.bin", "rb");
+    if (ptr == NULL) {
+        perror("Cannot open while reading the file. ");
+        return;
+    }
+
+    int found = 0;
+
+    while (fread(accounts, sizeof(Accounts), 1, ptr) == 1) {
+        if (strcmp(accounts->lastlogin, username->username) == 0) {
+            printf("Your Current Balance is %.3lf \n", accounts->balance);
+            found = 1;
+        }
+    }
+
+    if (!found) {
+        printf("Account not found \n");
+    }
+    fclose(ptr);
+}
+
+void Deposit_Money(Accounts* accounts, credintials* username, Transactions* transaction){
+    FILE* ptr = fopen("accounts.bin", "rb+");
+    if (ptr == NULL) {
+        perror("cannot open while writing the file ");
+        return;
+    }
+
+    int found = 0;
+    double n_balance;
+    while (fread(accounts, sizeof(Accounts), 1, ptr) == 1) {
+        if (strcmp(accounts->lastlogin, username->username) == 0) {
+            found = 1;
+
+            printf("enter your deposit balance ");
+            scanf("%lf", &n_balance);
+            getchar(); // for clear buffer
+            accounts->balance += n_balance;
+            fseek(ptr, -sizeof(Accounts), SEEK_CUR);
+            fwrite(accounts, sizeof(Accounts), 1, ptr);
+            break;
+            printf("You Successfully Deposit your Money to your Account \n");
+        }
+    }
+    if (!found) printf("Account not found \n");
+    fclose(ptr);
+}
+void Account_Menu(Accounts* accounts, credintials* username, Transactions* transaction){
     int choice;
 
    do {
@@ -198,7 +256,10 @@ void Account_Menu(Accounts* accounts, credintials* username){
     printf("2. View Your Account\n");
     printf("3. Update Your Account\n");
     printf("4. Delete Your Account\n");
-    printf("0. Exits\n");
+    printf("5. Check Your Balance \n");
+    printf("6. Deposit Money \n");
+    // printf("7. Withdraw Money \n");
+    printf("0. logout \n");
     printf("\n===========================================\n");
     printf("Enter your choice ");
     scanf("%d", &choice);
@@ -238,6 +299,15 @@ void Account_Menu(Accounts* accounts, credintials* username){
     case 4:
         printf("Delete Your Account \n");
         Delete_My_Account(username);
+        break;
+    case 5:
+        printf("check balance \n");
+        Check_Balance(accounts, username);
+        break;
+    case 6:
+        printf("Deposit Your Money \n");
+        Deposit_Money(accounts, username, transaction);
+        break;
      default:
         printf("Invalid Choice! \n");
         break;
@@ -246,7 +316,7 @@ void Account_Menu(Accounts* accounts, credintials* username){
   }while(choice != 0);
 }
 
-void login(credintials* credintial, char username[], int password, Accounts* accounts){
+void login(credintials* credintial, char username[], int password, Accounts* accounts, Transactions* transaction){
    FILE* ptr = fopen("data.bin", "rb");
    if (ptr == NULL) {
        perror("Cannot open file for reading.  ");
@@ -256,7 +326,7 @@ void login(credintials* credintial, char username[], int password, Accounts* acc
    while (fread(credintial, sizeof(credintials), 1, ptr) == 1) {
        if (strcmp(credintial->username, username) == 0 && credintial->password == password) {
            found = 1;
-           Account_Menu(accounts, credintial);    
+           Account_Menu(accounts, credintial, transaction);    
            break;
        }
    }
@@ -285,6 +355,8 @@ int main()
 {
     credintials credintial;
     Accounts accounts;
+    Transactions transaction;
+
     int choice, password;
     char username[35];
     
@@ -305,7 +377,7 @@ int main()
                 trim_newline(username);
                 printf("enter your password__ ");
                 scanf("%d", &password);
-                login(&credintial, username, password, &accounts);
+                login(&credintial, username, password, &accounts, &transaction);
                 break;
 
           default:
