@@ -1,4 +1,3 @@
-#include <math.h>
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
@@ -83,6 +82,8 @@ void View_All_Accounts(Accounts* accounts, credintials* username){
         perror("Cannot open file for reading. ");
         return;
     }
+
+
     int found = 0;
     while (fread(accounts, sizeof(Accounts), 1, ptr) == 1) {
 
@@ -218,14 +219,16 @@ void Check_Balance(Accounts* accounts, credintials* username){
     fclose(ptr);
 }
 
+static int count = 1;
+
 void Transaction_Logs(Transactions* transaction ,Accounts* id, char type, double Add_balance, char time_logs[], double kuhna_balance, Accounts* balance){
     FILE* ptr = fopen("transaction_logs.bin", "ab");
     if (ptr == NULL) {
         perror("Cannot open file for writing in logs \n");
         return;
     }
-
-    transaction->transactionID += 1;
+    
+    transaction->transactionID  = count++;
     transaction->accountID = id->Account_ID;
     transaction->type = type;
     transaction->Amount = Add_balance;
@@ -247,11 +250,13 @@ void Show_Transaction_Logs(Transactions* transaction){
     int found = 0;
     while (fread(transaction, sizeof(Transactions), 1, ptr) == 1) {
         found = 1;
+        printf("Transaction ID %d \n", transaction->transactionID);
         printf("Account_ID %d \n", transaction->accountID);
         printf("Type %c \n", transaction->type);
         printf("Amount %lf \n", transaction->Amount);
         printf("date created %s \n", transaction->date_time);
         printf("Previous Amount %lf \n", transaction->previous_balance);
+        printf("New Amount %lf \n", transaction->new_balance);
     }
     fclose(ptr);
 }
@@ -283,13 +288,51 @@ void Deposit_Money(Accounts* accounts, credintials* username, Transactions* tran
             fseek(ptr, -sizeof(Accounts), SEEK_CUR);
             fwrite(accounts, sizeof(Accounts), 1, ptr);
             Transaction_Logs(transaction, accounts, 'W', n_balance ,time_logs, old_balance, accounts);
-            break;
             printf("You Successfully Deposit your Money to your Account \n");
+            break;
         }
     }
     if (!found) printf("Account not found \n");
     fclose(ptr);
 }
+
+
+void Withdraw_Money(Accounts* accounts, credintials* username, Transactions* transaction){
+    FILE* ptr = fopen("accounts.bin", "rb+");
+    if (ptr == NULL) {
+        perror("cannot open while writing the file ");
+        return;
+    }
+
+    time_t t = time(NULL);
+    char time_logs[40];
+    strcpy(time_logs, ctime(&t));
+    time_logs[strlen(time_logs) - 1] = '\0';
+
+
+
+    int found = 0;
+    double n_balance;
+    while (fread(accounts, sizeof(Accounts), 1, ptr) == 1) {
+        if (strcmp(accounts->lastlogin, username->username) == 0) {
+            found = 1;
+            double old_balance = accounts->balance;
+            printf("enter your Withdraw Money ");
+            scanf("%lf", &n_balance);
+            getchar(); // for clear buffer
+            accounts->balance -= n_balance;
+            fseek(ptr, -sizeof(Accounts), SEEK_CUR);
+            fwrite(accounts, sizeof(Accounts), 1, ptr);
+            Transaction_Logs(transaction, accounts, 'W', n_balance ,time_logs, old_balance, accounts);
+            printf("You Successfully Withdraw your Money from your Account \n");
+            break;
+        }
+    }
+    if (!found) printf("Account not found \n");
+    fclose(ptr);
+}
+
+
 void Account_Menu(Accounts* accounts, credintials* username, Transactions* transaction){
     int choice;
 
@@ -304,8 +347,8 @@ void Account_Menu(Accounts* accounts, credintials* username, Transactions* trans
     printf("4. Delete Your Account\n");
     printf("5. Check Your Balance \n");
     printf("6. Deposit Money \n");
-    printf("7. Show Transactions Logs \n");
-    // printf("7. Withdraw Money \n");
+    printf("7. Withdraw Money \n");
+    printf("8. Show Transactions Logs \n");
     printf("0. logout \n");
     printf("\n===========================================\n");
     printf("Enter your choice ");
@@ -356,6 +399,10 @@ void Account_Menu(Accounts* accounts, credintials* username, Transactions* trans
         Deposit_Money(accounts, username, transaction);
         break;
     case 7:
+        printf("Withdraw Your Money \n");
+        Withdraw_Money(accounts, username, transaction);
+        break;
+    case 8:
         printf("Transaction logs \n");
         Show_Transaction_Logs(transaction);
         break;
