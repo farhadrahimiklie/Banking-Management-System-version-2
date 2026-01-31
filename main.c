@@ -29,6 +29,8 @@ typedef struct Transactions{
     double new_balance; // and new account balance is
 }Transactions;
 
+static int count = 1;
+
 void trim_newline(char *str)
 {
     str[strcspn(str, "\n")] = '\0';
@@ -88,14 +90,14 @@ void View_All_Accounts(Accounts* accounts, credintials* username){
     while (fread(accounts, sizeof(Accounts), 1, ptr) == 1) {
 
         if (strcmp(accounts->lastlogin, username->username) == 0) {
-            printf("Account_ID : %d \n", accounts->Account_ID);
-            printf("FullName : %s \n", accounts->fullName);
-            printf("phoneNumber : %ld \n", accounts->phoneNumber);
-            printf("AccountType : %s \n", accounts->AccountType);
-            printf("balance : %.3lf \n", accounts->balance);
-            printf("status : %s \n", accounts->status);
-            printf("lastlogin : %s \n", accounts->lastlogin);
-            printf("dateCreated : %s \n", accounts->dateCreated);
+            printf("Account_ID : %d\n", accounts->Account_ID);
+            printf("FullName : %s\n", accounts->fullName);
+            printf("phoneNumber : %ld\n", accounts->phoneNumber);
+            printf("AccountType : %s\n", accounts->AccountType);
+            printf("balance : %.3lf\n", accounts->balance);
+            printf("status : %s\n", accounts->status);
+            printf("lastlogin : %s\n", accounts->lastlogin);
+            printf("dateCreated : %s\n", accounts->dateCreated);
             found = 1;
         }
     }
@@ -219,7 +221,21 @@ void Check_Balance(Accounts* accounts, credintials* username){
     fclose(ptr);
 }
 
-static int count = 1;
+int Get_Last_Transaction_ID(){
+    FILE* ptr = fopen("transaction_logs.bin", "rb");
+    if (!ptr) {
+        return  0;
+    }
+
+    Transactions temp;
+    int lastID = 0;
+
+    while (fread(&temp, sizeof(Transactions), 1, ptr) == 1) {
+        lastID = temp.transactionID;
+    }
+    fclose(ptr);
+    return  lastID;
+}
 
 void Transaction_Logs(Transactions* transaction ,Accounts* id, char type, double Add_balance, char time_logs[], double kuhna_balance, Accounts* balance){
     FILE* ptr = fopen("transaction_logs.bin", "ab");
@@ -332,13 +348,108 @@ void Withdraw_Money(Accounts* accounts, credintials* username, Transactions* tra
     fclose(ptr);
 }
 
+void Transfer_Money(Accounts* accounts, credintials* username, Transactions* transaction){
+    getchar();
+    FILE* ptr = fopen("accounts.bin", "rb+");
+    if (!ptr) {
+        perror("cannot open account file. \n");
+        return;
+    }
+
+    char targetUser[35];
+    double transfer_amount;
+
+    printf("Enter Reciever User ");
+    fgets(targetUser, sizeof(targetUser), stdin);
+    trim_newline(targetUser);
+
+    printf("Enter Transfer Amount");
+    scanf("%lf", &transfer_amount);
+    getchar();
+
+    time_t t = time(NULL);
+    char time_logs[40];
+    strcpy(time_logs, ctime(&t));
+    time_logs[strlen(time_logs) -1 ] = '\0';
+
+    Accounts sender, reciever; // two sender and reciever from accounts struct
+    long sender_Position = -1;
+    long reciever_Position = -1;
+
+    rewind(ptr); // go back to your home.
+             
+    // Now We Found Our Transfer Account
+    while (fread(accounts, sizeof(Accounts), 1, ptr) == 1) {
+        if (strcmp(accounts->lastlogin, username->username) == 0) {
+            sender = *accounts; // now this is me aka sender for sending money to other account
+            sender_Position = ftell(ptr) - sizeof(Accounts); // set the position of sender in current position 
+        }
+
+        if (strcmp(accounts->lastlogin, targetUser) == 0) {
+            reciever = *accounts; // ak reciever recieve the amount via transfer money
+            reciever_Position = ftell(ptr) - sizeof(Accounts);
+        }
+    }
+
+    // check for Existince of amount
+    if (sender_Position == -1) {
+        printf("Your Account not Found \n");
+        fclose(ptr);
+        return;
+    }
+
+    if (reciever_Position == -1) {
+        printf("Reciever Account not Found \n");
+        fclose(ptr);
+        return;
+    }
+
+    // be Aware to transfer money to ourself.
+    if (strcmp(sender.lastlogin, reciever.lastlogin) == 0) {
+        printf("Cannot Transfer Money to Yourself \n");
+        fclose(ptr);
+        return;
+    }
+
+    // Are Amount Exist in the account to transfer check this also
+    if (sender.balance < transfer_amount) {
+        printf("Insuffecient Balance \n");
+        fclose(ptr);
+        return;
+    }
+
+    // Now Update the account and transfer money
+    double sender_old_balance = sender.balance;
+    double reciever_old_balance = reciever.balance;
+
+    sender.balance -= transfer_amount;
+    reciever.balance += transfer_amount;
+
+    // save sender update in file.
+    fseek(ptr, sender_Position, SEEK_SET); // go sender in start of line
+    fwrite(&sender, sizeof(Accounts), 1, ptr); // now save again sender detail in the file
+
+
+    // save reciever update in file 
+    fseek(ptr, reciever_Position, SEEK_SET);
+    fwrite(&reciever, sizeof(Accounts), 1, ptr);
+
+    // Now for last time save the logs in the transaction_logs.bin file
+    Transaction_Logs(transaction, &sender, 'T', transfer_amount, time_logs, sender_old_balance, &sender); // Transfer Out
+    Transaction_Logs(transaction, &reciever, 'R', transfer_amount, time_logs, reciever_old_balance, &reciever); // Recieve
+ 
+    printf("Money Transfered Successfully \n");
+
+    fclose(ptr);
+
+}
 
 void Account_Menu(Accounts* accounts, credintials* username, Transactions* transaction){
     int choice;
 
    do {
     printf("\n=================================================\n");
-    printf("User Account Details \n");
+    printf("Account Details \n");
     printf("\n===========================================\n");
 
     printf("1. Create Your Account\n");
@@ -348,7 +459,8 @@ void Account_Menu(Accounts* accounts, credintials* username, Transactions* trans
     printf("5. Check Your Balance \n");
     printf("6. Deposit Money \n");
     printf("7. Withdraw Money \n");
-    printf("8. Show Transactions Logs \n");
+    printf("8. Transfer Money \n");
+    printf("9. Show Transactions Logs \n");
     printf("0. logout \n");
     printf("\n===========================================\n");
     printf("Enter your choice ");
@@ -403,6 +515,10 @@ void Account_Menu(Accounts* accounts, credintials* username, Transactions* trans
         Withdraw_Money(accounts, username, transaction);
         break;
     case 8:
+        printf("Transfer Your Money \n");
+        Transfer_Money(accounts, username, transaction);
+        break;
+    case 9:
         printf("Transaction logs \n");
         Show_Transaction_Logs(transaction);
         break;
@@ -424,7 +540,8 @@ void login(credintials* credintial, char username[], int password, Accounts* acc
    while (fread(credintial, sizeof(credintials), 1, ptr) == 1) {
        if (strcmp(credintial->username, username) == 0 && credintial->password == password) {
            found = 1;
-           Account_Menu(accounts, credintial, transaction);    
+           printf("User Successfully log in [ %s ] \n", accounts->lastlogin);
+           Account_Menu(accounts, credintial, transaction); 
            break;
        }
    }
@@ -440,11 +557,11 @@ void login(credintials* credintial, char username[], int password, Accounts* acc
 void Menu()
 {
     printf("\n=================================================\n");
-    printf("LOGIN SYSTEM \n");
+    printf("SYSTEM REQUIRMENTS \n");
     printf("\n===========================================\n");
 
-    printf("1. Register\n");
-    printf("2. login\n");
+    printf("1. Register 🔐\n");
+    printf("2. login 🔐\n");
     printf("0. Exit\n");
 
 }
@@ -454,6 +571,8 @@ int main()
     credintials credintial;
     Accounts accounts;
     Transactions transaction;
+
+    count = Get_Last_Transaction_ID() + 1;
 
     int choice, password;
     char username[35];
@@ -465,11 +584,9 @@ int main()
 
         switch (choice) {
             case 1:
-                printf("First Register Yourself \n");
                 Registers(&credintial);
                 break;
            case 2:
-                printf("login to your account \n");
                 printf("enter your username__ ");
                 fgets(username, sizeof(username), stdin);
                 trim_newline(username);
